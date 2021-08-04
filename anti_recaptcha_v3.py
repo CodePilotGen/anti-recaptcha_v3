@@ -33,15 +33,19 @@ def audioToText(mp3Path):
     stt = SpeechToTextV1(authenticator=authenticator)
     stt.set_service_url(url)
 
+    texts = []
     with open(mp3Path, 'rb') as f:
         try:
             res = stt.recognize(audio=f, content_type='audio/mp3', model='es-ES_BroadbandModel', continuous=True).get_result()
             print(res)
-            text = res['results'][0]['alternatives'][0]['transcript']
+            alternatives = res['results'][0]['alternatives']
+            for alternative in alternatives:
+                transcript = alternative['transcript']
+                texts.append(transcript)
         except:
-            text = []
-    
-    return text
+            texts = []
+    return texts
+
 def saveFile(content,filename):
     with open(filename, "wb") as handle:
         for data in content.iter_content():
@@ -84,25 +88,27 @@ def clickItem(subimage, rl='left'):
         return True
 
     else :
+        pyautogui.moveTo(1, 1, duration = 0)
         print ('-> reCAPTCHA box not found!')
         return False
+
 def lifecycle(jurisdiction, number, year):
     time.sleep(1)
     # pyautogui.click('subimages/submit_button.png')
     if(clickItem('subimages/ctcha_check.jpg') == False):
-        driver.refresh()
+        # driver.refresh()
         return False
-    time.sleep(2)
+    time.sleep(1)
     if(clickItem('subimages/reshiba.jpg') == False):
-        driver.refresh()
+        # driver.refresh()
         return False
-    time.sleep(2)
+    time.sleep(1)
     if(clickItem('subimages/download_btn.jpg', rl='right') == False):
-        driver.refresh()
+        # driver.refresh()
         return False
     time.sleep(1)
     if(clickItem('subimages/copy_link_as.jpg') == False):
-        driver.refresh()
+        # driver.refresh()
         return False
     time.sleep(1)
     win32clipboard.OpenClipboard()
@@ -110,33 +116,39 @@ def lifecycle(jurisdiction, number, year):
     win32clipboard.CloseClipboard()
     # print(data)
     if(href == ""):
-        driver.refresh()
+        # driver.refresh()
         return False
     response = requests.get(href, stream=True)
-    
     saveFile(response,filename)
-    response = audioToText(os.getcwd() + '/' + filename)
 
-    # print(response)
-    if(response == []):
-        driver.refresh()
+    texts = audioToText(os.getcwd() + '/' + filename)
+
+    if(len(texts) == 0):
+        # driver.refresh()
         return False
     # if(clickItem('subimages/input_box.jpg') == False):
     #     pyautogui.hotkey('f5')
     #     return
-    clickItem('subimages/input_box.jpg')
-    pyperclip.copy(response)
-    time.sleep(0.5)
-    pyautogui.hotkey('ctrl', 'v')
-    pyautogui.press('enter')
-    time.sleep(2)
-    iframe = driver.find_element_by_css_selector("iframe[title='Prueba reCAPTCHA']")
-    driver.switch_to.frame(iframe)
-    errorMsg = driver.find_elements_by_xpath('/html/body/div/div/div[1]')[0]
-    # print(errorMsg.text)
-    if errorMsg.text == "Debes resolver más captchas.":
-        driver.refresh()
-        return False
+    for i in range(len(texts)):
+        clickItem('subimages/input_box.jpg')
+        pyperclip.copy(texts[i])
+        time.sleep(0.2)
+        pyautogui.hotkey('ctrl', 'v')
+        pyautogui.press('enter')
+        time.sleep(1)
+        iframe = driver.find_element_by_css_selector("iframe[title='Prueba reCAPTCHA']")
+        driver.switch_to.frame(iframe)
+        errorMsg = driver.find_elements_by_xpath('/html/body/div/div/div[1]')[0]
+        # errorMsg = driver.find_element_by_xpath("//div[class='rc-audiochallenge-error-message']")[0]
+        # print(errorMsg.text)
+        if errorMsg.text == "Debes resolver más captchas.":
+            print("wrong recognition => ", texts[i])
+            if i == len(texts) - 1:
+                return False
+            continue
+        print("exact recognition => ", texts[i])
+        break
+
     driver.switch_to.default_content()
     sel = Select(driver.find_element_by_id('formPublica\\:camaraNumAni'))
     sel.select_by_visible_text(jurisdiction)
@@ -146,11 +158,21 @@ def lifecycle(jurisdiction, number, year):
     try:
         WebDriverWait(driver, 3).until(EC.url_contains('http://scw.pjn.gov.ar/scw/expediente.seam'))
     except TimeoutException:
-        driver.refresh()
+        # driver.refresh()
         return False
     driver.back()
-    driver.refresh()
+    # driver.refresh()
     return True
+
+def isBrowserClosed(driver):
+    isClosed = False
+    try:
+        driver.get_window_size()
+    except:
+        isClosed = True
+
+    return isClosed
+
 if __name__ == "__main__":
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument("--start-maximized")
@@ -166,6 +188,7 @@ if __name__ == "__main__":
     driver.get('http://scw.pjn.gov.ar/scw/home.seam')
     
     loc_file = 'DatabaseQuery_14072021_140538239.xls'
+    # loc_file = 'DatabaseQuery_test.xls'
     wb = xlrd.open_workbook(loc_file)
     ws = wb.sheet_by_index(0)
     print("{0} {1} {2}".format(ws.name, ws.nrows, ws.ncols))
@@ -173,13 +196,23 @@ if __name__ == "__main__":
         flag = False
         jurisdiction = ws.cell(rx, 1).value
         number, year = ws.cell(rx, 2).value.split('/')
+        print(rx, " row=>")
         print("{0} {1} {2}".format(jurisdiction, number, year))
 
+        if (isBrowserClosed(driver)):
+            print("Browser is closed !")
+            break
+
         while flag == False:
-            flag = lifecycle(jurisdiction, number, year)
+            try:
+                flag = lifecycle(jurisdiction, number, year)
+                if (isBrowserClosed(driver)):
+                    break
+                driver.refresh()
+            except:
+                driver.refresh()
+                flag = False
 
-
-
-
-   
-     
+    driver.close()
+    driver.quit()
+    print("Successfully Finished !!!")
