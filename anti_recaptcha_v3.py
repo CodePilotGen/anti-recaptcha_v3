@@ -156,10 +156,11 @@ def lifecycle(jurisdiction, number, year):
     driver.find_element_by_id("formPublica\\:anio").send_keys(year)
     driver.find_element_by_id("formPublica\\:buscarPorNumeroButton").click()
     try:
-        WebDriverWait(driver, 3).until(EC.url_contains('http://scw.pjn.gov.ar/scw/expediente.seam'))
+        WebDriverWait(driver, 5).until(EC.url_contains('http://scw.pjn.gov.ar/scw/expediente.seam'))
     except TimeoutException:
         # driver.refresh()
-        return False
+        print("wrong number or year")
+        return True
     driver.back()
     # driver.refresh()
     return True
@@ -192,7 +193,7 @@ if __name__ == "__main__":
     wb = xlrd.open_workbook(loc_file)
     ws = wb.sheet_by_index(0)
     print("{0} {1} {2}".format(ws.name, ws.nrows, ws.ncols))
-    for rx in range(1, ws.nrows):
+    for rx in range(223, ws.nrows):
         flag = False
         jurisdiction = ws.cell(rx, 1).value
         number, year = ws.cell(rx, 2).value.split('/')
