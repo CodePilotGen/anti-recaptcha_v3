@@ -193,7 +193,7 @@ if __name__ == "__main__":
     wb = xlrd.open_workbook(loc_file)
     ws = wb.sheet_by_index(0)
     print("{0} {1} {2}".format(ws.name, ws.nrows, ws.ncols))
-    for rx in range(223, ws.nrows):
+    for rx in range(1, ws.nrows):
         flag = False
         jurisdiction = ws.cell(rx, 1).value
         number, year = ws.cell(rx, 2).value.split('/')
